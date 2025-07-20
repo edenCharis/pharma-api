@@ -1,0 +1,176 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" 
+  url      = env("DATABASE_URL")
+}
+
+
+enum UserRole {
+  ADMIN
+  SELLER
+  CASHIER
+}
+
+
+model User {
+  id           String    @id @default(uuid())
+  username     String    @unique
+  passwordHash String    // Store hashed passwords
+  role         UserRole
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relationships
+  salesAsSeller  Sale[] @relation("SellerSales")  // Sales recorded by this user as a seller
+  salesAsCashier Sale[] @relation("CashierSales") // Sales finalized by this user as a cashier
+}
+
+// Category model: Represents product categories (e.g., "Analgesics", "Antibiotics")
+model Category {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  products  Product[] // Products belonging to this category
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// Supplier model: Represents product suppliers
+model Supplier {
+  id        String    @id @default(uuid())
+  name      String
+  contact   String?   // Optional contact information
+  products  Product[] // Products supplied by this supplier
+  orders    Order[]   // Orders placed with this supplier
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// Product model: Represents pharmaceutical products
+model Product {
+  id            String     @id @default(uuid())
+  name          String
+  description   String?
+  price         Float      // Current selling price (could be PVU)
+  stock         Int
+  purchasePrice Float?     // PAU (Prix d'Achat Unitaire - Unit Purchase Price) from notes
+  sellingPrice  Float?     // PVU (Prix de Vente Unitaire - Unit Selling Price) from notes
+  vatRate       Float?     // TVA (Taxe sur la Valeur Ajoutée - VAT) rate, e.g., 0.18 for 18%
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+
+  saleItems  SaleItem[]  // Items in sales that include this product
+  orderItems OrderItem[] // Items in orders that include this product
+
+  @@unique([name, supplierId]) // Ensures a product name from a specific supplier is unique
+}
+
+// Client model: Represents customers
+model Client {
+  id        String    @id @default(uuid())
+  name      String
+  contact   String?
+  sales     Sale[]    // Sales made to this client
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// Insurance model: Represents insurance providers
+model Insurance {
+  id           String    @id @default(uuid())
+  name         String    @unique
+  policyDetails String?
+  sales        Sale[]    // Sales covered by this insurance
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// Order model: Represents purchase orders placed with suppliers
+model Order {
+  id           String      @id @default(uuid())
+  orderDate    DateTime    @default(now())
+  status       String      // e.g., "pending", "completed", "cancelled", "delivered"
+  supplierId   String
+  supplier     Supplier    @relation(fields: [supplierId], references: [id])
+  orderItems   OrderItem[] // Products included in this order
+  deliveries   Delivery[]  // Deliveries associated with this order
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+// OrderItem model: Details for each product within an order
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float    // Price of the product at the time of order
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([orderId, productId]) // A product can only appear once per order item list
+}
+
+// Delivery model: Represents the delivery of an order
+model Delivery {
+  id           String   @id @default(uuid())
+  deliveryDate DateTime @default(now())
+  orderId      String   @unique // One delivery per order (assuming full order delivery)
+  order        Order    @relation(fields: [orderId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Sale model: Represents a customer sale transaction
+model Sale {
+  id            String     @id @default(uuid())
+  saleDate      DateTime   @default(now())
+  totalAmount   Float      // Total amount of the sale
+  totalVAT      Float?     // Total VAT for the sale
+  discountAmount Float?    // Total discount applied to the sale
+  invoiceNumber String?    @unique // Unique number for printing invoices
+
+  cashierId     String
+  cashier       User       @relation("CashierSales", fields: [cashierId], references: [id])
+
+  sellerId      String
+  seller        User       @relation("SellerSales", fields: [sellerId], references: [id])
+
+  clientId      String?
+  client        Client?    @relation(fields: [clientId], references: [id])
+
+  insuranceId   String?
+  insurance     Insurance? @relation(fields: [insuranceId], references: [id])
+
+  saleItems     SaleItem[] // Products included in this sale
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+// SaleItem model: Details for each product within a sale
+model SaleItem {
+  id        String   @id @default(uuid())
+  saleId    String
+  sale      Sale     @relation(fields: [saleId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float    // Price of the product at the time of sale
+  discount  Float?   // Discount applied to this specific item
+  vatAmount Float?   // VAT amount for this specific item
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([saleId, productId]) // A product can only appear once per sale item list
+}
