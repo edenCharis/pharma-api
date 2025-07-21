@@ -14,7 +14,7 @@ export class AuthService {
     if (existingUser) {
       throw new Error('User already exists with this email');
     }
-    return await registerUser(userData.password, userData.username);
+    return await registerUser(userData.password, userData.username, userData.role);
   }
 
   static async login(login_data: LoginData): Promise<AuthResponse> {
