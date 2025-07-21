@@ -32,13 +32,13 @@ export const verifyToken = (token: string): JWTPayload | null => {
   }
 };
 
-export const registerUser = async (   password: string , name : string): Promise<AuthResponse> => {
+export const registerUser = async (   password: string , name : string, role: UserRole): Promise<AuthResponse> => {
   const hashedPassword = await hashPassword(password);
 
   const user = await prisma.user.create({
     data: {
       passwordHash: hashedPassword,
-      role: 'ADMIN',
+      role: role,
       username: name,
     },
   });
