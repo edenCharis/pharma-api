@@ -9,17 +9,17 @@ export class AuthController {
 
   static async register(req: Request, res: Response): Promise<void> {
     try {
-      const {  password, name } = req.body;
+      const { password, name, role }: { password: string; name: string; role: UserRole } = req.body;
 
-      if (!name || !password) {
-        res.status(400).json({ error: 'username  and password are required' });
+      if (!name || !password || !role) {
+        res.status(400).json({ error: 'username, password and role are required' });
         return;
       }
-    const login_dta: CreateUserData = { password: '', username: '', role: UserRole.ADMIN };
+    const login_dta: CreateUserData = { password: '', username: '', role: role };
     login_dta.username = name;
     login_dta.password = password;
-     
-           
+
+    
       const result = await AuthService.register(login_dta);
 
       res.json({ user: result.user, message: 'Registration successful', token: result.token });
